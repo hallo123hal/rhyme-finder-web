@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-
-type Mode = 'don' | 'doi' | 'ba' | 'bon' | 'dao';
+import { useEffect, useState } from 'react';
+import type { DaoCandidate, Mode } from '@/lib/rhymeEngine';
 
 const MODES: { value: Mode; label: string }[] = [
   { value: 'don', label: 'Vần đơn' },
@@ -12,20 +11,17 @@ const MODES: { value: Mode; label: string }[] = [
   { value: 'dao', label: 'Vần đảo' },
 ];
 
-interface DaoCandidate {
-  text: string;
-  attested: boolean;
-  keepsOriginalOnsets: boolean;
-}
+type Results = { mode: 'dao'; items: DaoCandidate[] } | { mode: 'plain'; items: string[] };
 
 interface SearchState {
   loading: boolean;
   error: string | null;
   total: number;
-  results: string[] | DaoCandidate[];
+  results: Results;
 }
 
-const INITIAL_STATE: SearchState = { loading: false, error: null, total: 0, results: [] };
+const EMPTY_RESULTS: Results = { mode: 'plain', items: [] };
+const INITIAL_STATE: SearchState = { loading: false, error: null, total: 0, results: EMPTY_RESULTS };
 
 export default function Home() {
   const [word, setWord] = useState('');
@@ -39,20 +35,36 @@ export default function Home() {
       return;
     }
     setState((s) => ({ ...s, loading: true, error: null }));
+    const requestedMode = mode;
     let ignore = false;
     const timeout = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/search?word=${encodeURIComponent(trimmed)}&mode=${mode}`);
+        const res = await fetch(
+          `/api/search?word=${encodeURIComponent(trimmed)}&mode=${requestedMode}`
+        );
         const data = await res.json();
         if (ignore) return;
         if (!res.ok) {
-          setState({ loading: false, error: data.error, total: 0, results: [] });
+          setState({ loading: false, error: data.error, total: 0, results: EMPTY_RESULTS });
           return;
         }
-        setState({ loading: false, error: null, total: data.total, results: data.results });
+        setState({
+          loading: false,
+          error: null,
+          total: data.total,
+          results:
+            requestedMode === 'dao'
+              ? { mode: 'dao', items: data.results as DaoCandidate[] }
+              : { mode: 'plain', items: data.results as string[] },
+        });
       } catch {
         if (ignore) return;
-        setState({ loading: false, error: 'Có lỗi xảy ra, thử lại sau.', total: 0, results: [] });
+        setState({
+          loading: false,
+          error: 'Có lỗi xảy ra, thử lại sau.',
+          total: 0,
+          results: EMPTY_RESULTS,
+        });
       }
     }, 300);
     return () => {
@@ -62,8 +74,9 @@ export default function Home() {
   }, [word, mode]);
 
   const isDao = mode === 'dao';
-  const daoResults = useMemo(() => (isDao ? (state.results as DaoCandidate[]) : []), [isDao, state.results]);
-  const plainResults = useMemo(() => (!isDao ? (state.results as string[]) : []), [isDao, state.results]);
+  const results = state.results;
+  const daoResults = results.mode === 'dao' && isDao ? results.items : [];
+  const plainResults = results.mode === 'plain' && !isDao ? results.items : [];
 
   return (
     <main className="page">
@@ -93,7 +106,7 @@ export default function Home() {
         <p className="status">Không tìm thấy.</p>
       )}
 
-      {!isDao && plainResults.length > 0 && (
+      {plainResults.length > 0 && (
         <ul className="results">
           {plainResults.map((r) => (
             <li key={r}>{r}</li>
@@ -101,7 +114,7 @@ export default function Home() {
         </ul>
       )}
 
-      {isDao && daoResults.length > 0 && (
+      {daoResults.length > 0 && (
         <ul className="results">
           {daoResults.map((r) => (
             <li key={r.text}>
