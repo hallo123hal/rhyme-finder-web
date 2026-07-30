@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildDictionary } from './dictionary';
-import { searchRhyme, RhymeSearchError } from './rhymeEngine';
+import { searchRhyme, RhymeSearchError, generateDao } from './rhymeEngine';
 
 const FIXTURE = ['yêu', 'chiều', 'chăng', 'trăng', 'vắng', 'yêu thương', 'kiều dương'];
 
@@ -42,5 +42,56 @@ describe('searchRhyme', () => {
     const result = searchRhyme(dict, 'măng', 'don');
     expect(result.total).toBeGreaterThan(200);
     expect(result.results.length).toBe(200);
+  });
+});
+
+const DAO_FIXTURE = ['phải', 'chăng', 'chẳng', 'phẳng', 'phai', 'di', 'dời', 'rơi', 'gì', 'dơi', 'dì'];
+
+describe('generateDao', () => {
+  it('reproduces the "phải chăng" -> "chẳng phai" nói lái pair', () => {
+    const dict = buildDictionary(DAO_FIXTURE);
+    const result = generateDao(dict, 'phải chăng');
+    expect(result.results.map((r) => r.text)).toContain('chẳng phai');
+  });
+
+  it('reproduces the "di dời" -> "rơi gì" nói lái pair', () => {
+    const dict = buildDictionary(DAO_FIXTURE);
+    const result = generateDao(dict, 'di dời');
+    expect(result.results.map((r) => r.text)).toContain('rơi gì');
+  });
+
+  it('flags candidates that keep the original onsets', () => {
+    const dict = buildDictionary(DAO_FIXTURE);
+    const result = generateDao(dict, 'di dời');
+    const dơiDi = result.results.find((r) => r.text === 'dơi dì');
+    expect(dơiDi?.keepsOriginalOnsets).toBe(true);
+    const rơiGi = result.results.find((r) => r.text === 'rơi gì');
+    expect(rơiGi?.keepsOriginalOnsets).toBe(false);
+  });
+
+  it('flags candidates that are also an attested adjacent pair in the dictionary', () => {
+    const dict = buildDictionary(['phải chăng', 'chẳng phai', ...DAO_FIXTURE]);
+    const result = generateDao(dict, 'phải chăng');
+    const chẳngPhai = result.results.find((r) => r.text === 'chẳng phai');
+    expect(chẳngPhai?.attested).toBe(true);
+  });
+
+  it('sorts attested candidates before non-attested ones', () => {
+    // With "phẳng" also matching the ăng|hỏi slot, "phẳng phai" becomes a
+    // second valid-but-unattested candidate alongside the attested "chẳng phai".
+    const dict = buildDictionary(['phải chăng', 'chẳng phai', ...DAO_FIXTURE]);
+    const result = generateDao(dict, 'phải chăng');
+    expect(result.results[0].text).toBe('chẳng phai');
+  });
+
+  it('keeps a fixed prefix when the input has more than two syllables', () => {
+    const dict = buildDictionary(DAO_FIXTURE);
+    const result = generateDao(dict, 'xin di dời');
+    expect(result.results.some((r) => r.text === 'xin rơi gì')).toBe(true);
+  });
+
+  it('throws RhymeSearchError when input has fewer than two syllables', () => {
+    const dict = buildDictionary(DAO_FIXTURE);
+    expect(() => generateDao(dict, 'di')).toThrow(RhymeSearchError);
   });
 });

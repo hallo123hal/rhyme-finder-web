@@ -42,3 +42,52 @@ export function searchRhyme(dictionary: Dictionary, word: string, mode: PlainMod
 
   return { total: scored.length, results: scored.slice(0, 200).map((c) => c.text) };
 }
+
+export interface DaoCandidate {
+  text: string;
+  attested: boolean;
+  keepsOriginalOnsets: boolean;
+}
+
+export interface DaoSearchResult {
+  total: number;
+  results: DaoCandidate[];
+}
+
+export function generateDao(dictionary: Dictionary, word: string): DaoSearchResult {
+  const syllables = analyzePhrase(word);
+  if (syllables.length < 2) {
+    throw new RhymeSearchError('Cần nhập ít nhất 2 âm tiết cho vần đảo.');
+  }
+
+  const prefix = syllables.slice(0, -2);
+  const [s1, s2] = syllables.slice(-2);
+
+  const pos1Candidates = dictionary.syllablesByRhymeTone.get(`${s2.rhyme}|${s1.tone}`) ?? [];
+  const pos2Candidates = dictionary.syllablesByRhymeTone.get(`${s1.rhyme}|${s2.tone}`) ?? [];
+
+  const prefixText = prefix.map((s) => s.original).join(' ');
+  const seen = new Set<string>();
+  const candidates: DaoCandidate[] = [];
+
+  for (const a of pos1Candidates) {
+    for (const b of pos2Candidates) {
+      const pairText = `${a.syllable} ${b.syllable}`;
+      if (seen.has(pairText)) continue;
+      seen.add(pairText);
+      candidates.push({
+        text: prefixText ? `${prefixText} ${pairText}` : pairText,
+        attested: dictionary.adjacentPairs.has(pairText),
+        keepsOriginalOnsets: a.onset === s2.onset && b.onset === s1.onset,
+      });
+    }
+  }
+
+  candidates.sort((x, y) => {
+    if (x.attested !== y.attested) return x.attested ? -1 : 1;
+    if (x.keepsOriginalOnsets !== y.keepsOriginalOnsets) return x.keepsOriginalOnsets ? -1 : 1;
+    return x.text.localeCompare(y.text);
+  });
+
+  return { total: candidates.length, results: candidates.slice(0, 100) };
+}
