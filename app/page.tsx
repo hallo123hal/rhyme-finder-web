@@ -39,20 +39,26 @@ export default function Home() {
       return;
     }
     setState((s) => ({ ...s, loading: true, error: null }));
+    let ignore = false;
     const timeout = setTimeout(async () => {
       try {
         const res = await fetch(`/api/search?word=${encodeURIComponent(trimmed)}&mode=${mode}`);
         const data = await res.json();
+        if (ignore) return;
         if (!res.ok) {
           setState({ loading: false, error: data.error, total: 0, results: [] });
           return;
         }
         setState({ loading: false, error: null, total: data.total, results: data.results });
       } catch {
+        if (ignore) return;
         setState({ loading: false, error: 'Có lỗi xảy ra, thử lại sau.', total: 0, results: [] });
       }
     }, 300);
-    return () => clearTimeout(timeout);
+    return () => {
+      ignore = true;
+      clearTimeout(timeout);
+    };
   }, [word, mode]);
 
   const isDao = mode === 'dao';
