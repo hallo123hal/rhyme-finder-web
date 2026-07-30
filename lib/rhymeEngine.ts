@@ -68,7 +68,8 @@ export function generateDao(dictionary: Dictionary, word: string): DaoSearchResu
 
   const prefixText = prefix.map((s) => s.original).join(' ');
   const seen = new Set<string>();
-  const candidates: DaoCandidate[] = [];
+  const candidates: (DaoCandidate & { commonness: number })[] = [];
+  const freq = (syllable: string) => dictionary.syllableFrequency.get(syllable) ?? 0;
 
   for (const a of pos1Candidates) {
     for (const b of pos2Candidates) {
@@ -79,6 +80,7 @@ export function generateDao(dictionary: Dictionary, word: string): DaoSearchResu
         text: prefixText ? `${prefixText} ${pairText}` : pairText,
         attested: dictionary.adjacentPairs.has(pairText),
         keepsOriginalOnsets: a.onset === s2.onset && b.onset === s1.onset,
+        commonness: Math.min(freq(a.syllable), freq(b.syllable)),
       });
     }
   }
@@ -86,8 +88,14 @@ export function generateDao(dictionary: Dictionary, word: string): DaoSearchResu
   candidates.sort((x, y) => {
     if (x.attested !== y.attested) return x.attested ? -1 : 1;
     if (x.keepsOriginalOnsets !== y.keepsOriginalOnsets) return x.keepsOriginalOnsets ? -1 : 1;
+    if (x.commonness !== y.commonness) return y.commonness - x.commonness;
     return x.text.localeCompare(y.text);
   });
 
-  return { total: candidates.length, results: candidates.slice(0, 100) };
+  return {
+    total: candidates.length,
+    results: candidates
+      .slice(0, 100)
+      .map(({ text, attested, keepsOriginalOnsets }) => ({ text, attested, keepsOriginalOnsets })),
+  };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildDictionary } from './dictionary';
+import { buildDictionary, getDictionary } from './dictionary';
 import { searchRhyme, RhymeSearchError, generateDao } from './rhymeEngine';
 
 const FIXTURE = ['yêu', 'chiều', 'chăng', 'trăng', 'vắng', 'yêu thương', 'kiều dương'];
@@ -93,5 +93,21 @@ describe('generateDao', () => {
   it('throws RhymeSearchError when input has fewer than two syllables', () => {
     const dict = buildDictionary(DAO_FIXTURE);
     expect(() => generateDao(dict, 'di')).toThrow(RhymeSearchError);
+  });
+});
+
+describe('generateDao against the real bundled dictionary', () => {
+  // The fixture tests above prove the algorithm can produce the two worked
+  // examples; against the real 202k-word list hundreds of valid candidates
+  // compete for the 100 visible slots, so these assert the ranking actually
+  // surfaces them to a user.
+  it('surfaces "chẳng phai" for "phải chăng" in the visible results', () => {
+    const result = generateDao(getDictionary(), 'phải chăng');
+    expect(result.results.map((r) => r.text)).toContain('chẳng phai');
+  });
+
+  it('surfaces "rơi gì" for "di dời" in the visible results', () => {
+    const result = generateDao(getDictionary(), 'di dời');
+    expect(result.results.map((r) => r.text)).toContain('rơi gì');
   });
 });
