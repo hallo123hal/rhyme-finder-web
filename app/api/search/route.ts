@@ -7,13 +7,21 @@ const ALLOWED_CHARS =
   'a-zđàáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵ';
 const STRIP_PATTERN = new RegExp(`[^${ALLOWED_CHARS}\\s]`, 'g');
 
+const dictionary = getDictionary();
+
 function normalizeInput(raw: string): string {
-  return raw
-    .trim()
-    .toLowerCase()
-    .replace(STRIP_PATTERN, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return (
+    raw
+      // Some IMEs emit decomposed (NFD) Vietnamese; without recomposing, the
+      // allowlist below would delete the combining tone marks outright and
+      // silently turn "phải" into "phai".
+      .normalize('NFC')
+      .trim()
+      .toLowerCase()
+      .replace(STRIP_PATTERN, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
 }
 
 export async function GET(request: NextRequest) {
@@ -24,8 +32,6 @@ export async function GET(request: NextRequest) {
   if (!word) {
     return NextResponse.json({ error: 'Vui lòng nhập từ cần tìm.' }, { status: 400 });
   }
-
-  const dictionary = getDictionary();
 
   try {
     if (modeParam === 'dao') {
