@@ -1,17 +1,34 @@
 import json
 import re
+import unicodedata
 from pathlib import Path
 
 SOURCE = Path(__file__).parent.parent.parent / "find-rhymes-main" / "app" / "rhymes" / "data" / "200k.txt"
 OUTPUT = Path(__file__).parent.parent / "data" / "words.json"
 
 
+# Must stay in sync with ALLOWED_CHARS / STRIP_PATTERN in app/api/search/route.ts:
+# anything the API strips from user input must also be absent from the shipped
+# word list, otherwise unreachable junk syllables get offered as rhymes.
+ALLOWED_CHARS = (
+    "a-zđàáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩị"
+    "òóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵ"
+)
+STRIP_PATTERN = re.compile(rf"[^{ALLOWED_CHARS}\s]")
+
+
 def clean_line(line: str) -> str:
     line = line.replace("﻿", "")
+    # 200k.txt is ~58% NFD (tone marks as separate combining codepoints). The
+    # allowlist below — and the phonetics analyzer — only know precomposed
+    # letters, so decomposed input must be recomposed first or its tone marks
+    # would simply be deleted as "disallowed" characters.
+    line = unicodedata.normalize("NFC", line)
     line = line.strip().lower()
-    line = line.replace("'", "").replace('"', "")
+    # Hyphens/commas/exclamations become a separator rather than being deleted,
+    # so "a-xít" yields two real syllables instead of one glued non-syllable.
     line = re.sub(r"[-!,]", " ", line)
-    line = re.sub(r"\d+", "", line)
+    line = STRIP_PATTERN.sub("", line)
     line = re.sub(r"\s+", " ", line)
     return line.strip()
 
