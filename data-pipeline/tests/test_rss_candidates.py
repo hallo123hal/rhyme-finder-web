@@ -5,7 +5,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from sources.rss_candidates import fetch_rss_candidates, safe_parse_xml, _tokenize, _ngrams
+from sources.rss_candidates import (
+    fetch_rss_candidates,
+    safe_parse_xml,
+    _tokenize,
+    _ngrams,
+    EntitiesForbidden,
+)
 
 
 SAMPLE_FEED_XML = """<?xml version="1.0" encoding="UTF-8"?>
@@ -33,7 +39,7 @@ class TestSafeParseXml(unittest.TestCase):
         self.assertEqual(root.tag, "rss")
 
     def test_rejects_doctype_declarations(self):
-        with self.assertRaises(Exception):
+        with self.assertRaises(EntitiesForbidden):
             safe_parse_xml(MALICIOUS_FEED_XML)
 
 
@@ -99,6 +105,23 @@ class TestFetchRssCandidates(unittest.TestCase):
         )
         self.assertEqual(skipped, ["http://broken-feed"])
         self.assertIn("sương sương", candidates)
+
+    def test_ngrams_do_not_cross_item_or_field_boundaries(self):
+        # SAMPLE_FEED_XML's first item's title ends "...khắp nơi" and its
+        # description (after tag-stripping) begins "ảnh Giới trẻ...". If
+        # title/description text were joined into one string before
+        # n-gramming, the bigram "nơi ảnh" would be fabricated even though
+        # it never appears together in any real headline or blurb.
+        def fake_fetch(url):
+            return SAMPLE_FEED_XML
+
+        candidates, _ = fetch_rss_candidates(
+            existing_words=set(),
+            feeds=["http://fake-feed"],
+            min_count=1,
+            fetch_fn=fake_fetch,
+        )
+        self.assertNotIn("nơi ảnh", candidates)
 
     def test_malicious_feed_is_skipped_not_crashed_on(self):
         def fake_fetch(url):

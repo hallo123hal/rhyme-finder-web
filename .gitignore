@@ -3,3 +3,4 @@ node_modules
 .vercel
 *.log
 data-pipeline/pr_summary.txt
+__pycache__/

@@ -13,11 +13,23 @@ from sources.rss_candidates import fetch_rss_candidates
 
 WORDS_JSON = Path(__file__).parent.parent / "data" / "words.json"
 SUMMARY_FILE = Path(__file__).parent / "pr_summary.txt"
+REJECTED_FILE = Path(__file__).parent / "rejected.txt"
 
 
-def run(words_path: Path, fetchers: dict, rss_fetcher, summary_path: Path) -> None:
+def _load_rejected_words(path: Path) -> set:
+    if not path.exists():
+        return set()
+    return {
+        line.strip()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    }
+
+
+def run(words_path: Path, fetchers: dict, rss_fetcher, summary_path: Path, rejected_path: Path = None) -> None:
     existing_words = json.loads(words_path.read_text(encoding="utf-8"))
     existing_set = set(existing_words)
+    rejected = _load_rejected_words(rejected_path) if rejected_path is not None else set()
 
     source_lists = {}
     skipped_sources = []
@@ -35,13 +47,17 @@ def run(words_path: Path, fetchers: dict, rss_fetcher, summary_path: Path) -> No
     except Exception as exc:
         skipped_sources.append(f"rss ({exc})")
 
-    merged, counts, rss_candidates = merge_word_lists(existing_words, source_lists)
+    merged, counts, rss_candidates = merge_word_lists(existing_words, source_lists, rejected=rejected)
     write_words_json(merged, words_path)
 
     lines = [f"+{counts.get(name, 0)} words from {name}" for name in source_lists]
     if rss_candidates:
+        MAX_LISTED = 200
         lines.append(f"+{len(rss_candidates)} RSS candidates (please double-check these):")
-        lines.extend(f"  - {word}" for word in rss_candidates)
+        for word in rss_candidates[:MAX_LISTED]:
+            lines.append(f"  - {word}")
+        if len(rss_candidates) > MAX_LISTED:
+            lines.append(f"  ...and {len(rss_candidates) - MAX_LISTED} more (truncated for PR body length)")
     if skipped_sources:
         lines.append("Skipped sources:")
         lines.extend(f"  - {s}" for s in skipped_sources)
@@ -60,4 +76,5 @@ if __name__ == "__main__":
         },
         rss_fetcher=fetch_rss_candidates,
         summary_path=SUMMARY_FILE,
+        rejected_path=REJECTED_FILE,
     )

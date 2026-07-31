@@ -59,14 +59,19 @@ def _default_fetch(url: str) -> str:
         return response.read().decode("utf-8")
 
 
-def _extract_text(feed_xml: str) -> str:
+def _extract_fields(feed_xml: str) -> list:
+    """Return each item's title and description as separate field texts
+    so callers can tokenize/n-gram them independently. Joining them into
+    one string before n-gramming would fabricate phrases that span two
+    unrelated fields (e.g. the last word of one item's description glued
+    to the first word of the next item's title)."""
     root = safe_parse_xml(feed_xml)
-    parts = []
+    fields = []
     for item in root.iter("item"):
-        parts.append(item.findtext("title") or "")
+        fields.append(item.findtext("title") or "")
         description = item.findtext("description") or ""
-        parts.append(_TAG_RE.sub(" ", description))
-    return " ".join(parts)
+        fields.append(_TAG_RE.sub(" ", description))
+    return fields
 
 
 def _tokenize(text: str) -> list:
@@ -88,13 +93,14 @@ def fetch_rss_candidates(existing_words, feeds=None, min_count=2, fetch_fn=None)
     for url in feeds:
         try:
             feed_xml = fetch_fn(url)
-            text = _extract_text(feed_xml)
+            fields = _extract_fields(feed_xml)
         except Exception:
             skipped.append(url)
             continue
-        tokens = _tokenize(text)
-        for n in (1, 2, 3, 4):
-            counts.update(_ngrams(tokens, n))
+        for field_text in fields:
+            tokens = _tokenize(field_text)
+            for n in (1, 2, 3, 4):
+                counts.update(_ngrams(tokens, n))
 
     candidates = sorted(
         phrase for phrase, count in counts.items()

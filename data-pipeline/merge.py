@@ -6,7 +6,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import normalize_word
 
 
-def merge_word_lists(existing_words, source_lists):
+def merge_word_lists(existing_words, source_lists, rejected=None):
+    rejected = set() if rejected is None else rejected
     merged = set(existing_words)
     counts = {}
     rss_candidates = []
@@ -15,7 +16,7 @@ def merge_word_lists(existing_words, source_lists):
         added = 0
         for raw in raw_words:
             normalized = normalize_word(raw)
-            if not normalized or normalized in merged:
+            if not normalized or normalized in merged or normalized in rejected:
                 continue
             merged.add(normalized)
             added += 1

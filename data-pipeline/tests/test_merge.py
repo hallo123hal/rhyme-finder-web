@@ -45,6 +45,17 @@ class TestMergeWordLists(unittest.TestCase):
         self.assertEqual(merged, ["a bung"])
         self.assertEqual(counts, {"github_wordlist": 0})
 
+    def test_rejected_candidates_are_excluded_and_not_counted(self):
+        merged, counts, rss = merge_word_lists(
+            existing_words=["a"],
+            source_lists={"rss": ["junk phrase", "sương sương"]},
+            rejected={"junk phrase"},
+        )
+        self.assertNotIn("junk phrase", merged)
+        self.assertIn("sương sương", merged)
+        self.assertEqual(counts, {"rss": 1})
+        self.assertEqual(rss, ["sương sương"])
+
     def test_deduplicates_across_sources(self):
         merged, counts, rss = merge_word_lists(
             existing_words=[],

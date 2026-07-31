@@ -28,6 +28,14 @@ Pulls new candidate words from three sources and merges them into
   summary output — review them before trusting they're real words rather
   than noise.
 
+If an RSS candidate turns out to be junk (a name, boilerplate, a
+fragment that isn't really a word), don't just delete it from the PR —
+the same phrase will likely reappear in a future run's feeds and get
+re-proposed. Instead, add it (one phrase per line) to
+`data-pipeline/rejected.txt` in the same PR (or a follow-up commit).
+Anything listed there is permanently excluded from future RSS candidate
+proposals.
+
 This runs automatically every week via
 `.github/workflows/update-words.yml`, which opens a PR against
 `data/words.json` for review. Merging the PR redeploys the site
