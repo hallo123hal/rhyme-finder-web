@@ -1,6 +1,7 @@
 import json
 import sys
 import tempfile
+import unicodedata
 import unittest
 from pathlib import Path
 
@@ -11,8 +12,11 @@ from common import ALLOWED_CHARS, normalize_word, write_words_json
 
 class TestNormalizeWord(unittest.TestCase):
     def test_nfd_input_is_recomposed(self):
-        # "yêu" decomposed: y + e + COMBINING CIRCUMFLEX ACCENT (U+0302) + u
-        nfd_input = "yêu"
+        nfd_input = unicodedata.normalize("NFD", "yêu")
+        # sanity-check the fixture itself is actually decomposed (4 codepoints,
+        # not 3) — this guards against the exact transcription bug that slipped
+        # through last time, where a literal silently became NFC again
+        self.assertEqual(len(nfd_input), 4)
         self.assertEqual(normalize_word(nfd_input), "yêu")
 
     def test_hyphen_becomes_separator(self):
