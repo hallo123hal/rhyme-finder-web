@@ -3,7 +3,7 @@ import re
 import unicodedata
 from pathlib import Path
 
-SOURCE = Path(__file__).parent.parent.parent / "find-rhymes-main" / "app" / "rhymes" / "data" / "200k.txt"
+SOURCE = Path(__file__).parent / "source" / "200k.txt"
 OUTPUT = Path(__file__).parent.parent / "data" / "words.json"
 
 
