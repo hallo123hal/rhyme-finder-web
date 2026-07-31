@@ -2,3 +2,4 @@ node_modules
 .next
 .vercel
 *.log
+data-pipeline/pr_summary.txt
