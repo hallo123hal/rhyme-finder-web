@@ -63,7 +63,7 @@ def run(words_path: Path, fetchers: dict, rss_fetcher, summary_path: Path, rejec
         lines.extend(f"  - {s}" for s in skipped_sources)
 
     summary = "\n".join(lines) if lines else "No changes this run."
-    summary_path.write_text(summary, encoding="utf-8")
+    summary_path.write_text(summary + "\n", encoding="utf-8")
     print(summary)
 
 
